@@ -8,6 +8,7 @@ echo "Checking Laravel dependencies..."
 
 if [ ! -f vendor/autoload.php ]; then
     echo "Installing Composer dependencies..."
+
     composer install \
         --no-interaction \
         --prefer-dist \
@@ -53,14 +54,24 @@ echo "Clearing Laravel configuration..."
 
 php artisan config:clear
 
-echo "Running database migrations..."
+echo "Waiting for database..."
 
-until php artisan migrate --force >/dev/null 2>&1; do
+until php artisan db:show >/dev/null 2>&1; do
     echo "Database is not ready yet..."
     sleep 2
 done
 
 echo "Database is ready."
+
+echo "Running database migrations..."
+
+php artisan migrate --force
+
+echo "Running database seeders..."
+
+php artisan db:seed --force
+
+echo "Database migrations and seeders completed."
 
 echo "Starting Laravel..."
 
