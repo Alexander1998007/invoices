@@ -1,90 +1,93 @@
-# Invoice Test Assignment
+# Invoice Management System
 
-Starter project for the Full-stack Invoice Test Assignment.
+A full-stack Invoice Management Application built with **Nuxt 4** and **Laravel 12**, fully dockerized for instant local setup.
 
-## Stack
+---
 
-- Frontend: Nuxt 4.0.3 + Vue 3.5.18 + Tailwind CSS 4 + vee-validate + Zod
-- Backend: Laravel 12 + PHP 8.3
-- Database: MySQL 8.4
-- Environment: Docker Compose
-- Node.js: 20 LTS
+## Technical Stack
 
-## Requirements
+* **Frontend:** Nuxt 4.5.2 (Vue 3.5.41), Tailwind CSS 4, Vee-Validate 4, Zod
+* **Backend:** Laravel 12 (PHP 8.3)
+* **Database:** MySQL 8.4
+* **Environment:** Docker & Docker Compose
+* **Node.js:** 24 LTS (Local host dependencies for IDE/TS support)
 
-- Docker Desktop / Docker Engine with Compose v2
-- Node.js 20 LTS + npm
+---
 
-Node.js/npm are required locally **only for frontend dependency installation and IDE/TypeScript support**. PHP and Composer are not required locally.
+## System Requirements
 
-## Quick start
+* Docker Engine with Docker Compose v2+
+* Node.js 24 LTS + `npm` *(required on host only for IDE TypeScript indexer)*
 
-### Windows PowerShell
+> **Note:** Host-side PHP, Composer, or MySQL are **not** required. All application runtimes are fully containerized.
 
-From the project root:
+---
+
+## Quick Start
+
+### PowerShell (Windows)
 
 ```powershell
 .\scripts\setup.ps1
 ```
 
-The script:
+### Bash (macOS / Linux / Git Bash)
 
-1. checks Node.js/npm;
-2. runs `npm install` in `frontend/`, creating a local `node_modules` that your IDE can index;
-3. starts Docker Compose.
-
-### macOS / Linux / Git Bash
-
-```bash
+```powershell
 ./scripts/setup.sh
 ```
 
-## Manual start
-
-If you prefer to run the steps manually:
-
-```bash
+### Manual Run
+```powershell
 cd frontend
 npm install
 cd ..
-docker compose up --build
+docker compose up -d --build
 ```
 
-After the first backend start, Laravel is bootstrapped automatically into `./backend` and migrations are run when the database is ready.
+---
 
-Open:
+## Application URLs
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8000
-- MySQL: localhost:3307
+* Frontend: http://localhost:3000
+* Backend API: http://localhost:8000
+* Database Port: localhost:3307
+---
 
-The frontend expects the API at `http://localhost:8000/api`.
+## Answers to Technical Questions
+**1. Як ти структурував frontend і backend?**
 
-## Why is `npm install` also run locally?
+    Backend (Laravel 12):
 
-The Docker Compose setup keeps frontend `node_modules` in a Docker volume so container dependencies are isolated. That is useful for Docker, but an IDE running on the host cannot see packages inside that Docker volume. As a result, TypeScript may report errors such as:
+    - REST API Endpoints: Визначено в routes/api.php через Route::apiResource('invoices', InvoiceController::class).
+    - Form Requests: Валідація повністю винесена з контролерів. StoreInvoiceRequest перевіряє унікальність інвойсу та рівність сум ($Gross = Net + VAT$). UpdateInvoiceRequest гарантує, що редагування доступне тільки для записів зі статусом pending.
+    - Business Logic: Автоматичний перерахунок gross_amount виконується на рівні сервера під час update() для захисту від маніпуляцій з клієнта.
+    - Filtering & Sorting: GET /api/invoices підтримує серверний пошук (search) за номером/постачальником та сортування (sort_by, sort_order).
 
-- `Cannot find module '@tailwindcss/vite'`
-- `Cannot find name 'defineNuxtConfig'`
-- `Cannot find name 'process'`
+    Frontend (Nuxt 4):
 
-Running `npm install` in `frontend/` creates host-side dependencies for IDE autocomplete, TypeScript and Nuxt typings. The Docker container remains responsible for running the application.
+    - File-based Routing: Організовано всередині директорії app/pages/:
+        app/pages/invoices/index.vue: Список, серверний пошук, сортування та адаптивна клієнтська пагінація.
+        app/pages/invoices/create.vue: Форма створення нового інвойсу з автоперерахунком gross_amount.
+        app/pages/invoices/[id].vue: Детальний перегляд та редагування інвойсу.
+    - Validation Layer: Синхронне зв'язування полів через defineField від vee-validate та суворі схеми типів через zod.
 
-After installation, if the IDE still shows old TypeScript errors, restart its TypeScript server or restart the IDE.
+**2. Які компроміси ти зробив і чому?**  
 
-## Reset Docker environment
+    - Client-side vs Server-side Pagination: Для даного тестового завдання застосовано гібридний підхід. Backend підтримує фільтрацію та сортування, а пагінація відображення розбивається на фронтенді (по 10 елементів). Це забезпечує миттєвий відгук UI при невеликих обсягах даних.
+    - Автоматичний підрахунок Gross Amount: Обчислюється динамічно на фронтенді в реальному часі для підвищення UX, але бекенд залишається єдиним джерелом правди й повторно обчислює значення перед збереженням у БД.
+    - Відсутність авторизації (Auth): Модуль автентифікації свідомо пропущено для спрощення перевірки тестового завдання.
 
-If you need a completely clean Docker state:
+**3. Що б ти покращив у production-версії?**  
 
-```bash
-docker compose down -v
-docker compose up --build
-```
+    - Повна серверна пагінація: Переведення пагінації на LengthAwarePaginator у Laravel (paginated() в InvoiceController) для ефективної роботи з мільйонами записів.
+    - Індексація бази даних: Додавання складених індексів (Composite Indexes) у міграціях на (status, due_date) та (number, supplier_name) для прискорення запитів пошуку.
+    - Автентифікація та RBAC: Впровадження Laravel Sanitizer / Passport та роли для обмеження прав редагування інвойсів.
+    - Кешування: Кешування списків та агрегованої статистики за допомогою Redis.
 
-`-v` removes the MySQL and frontend dependency volumes. This will reset the local database.
+**4. Які UX edge cases ти врахував?**
 
-## Notes
-
-The Laravel application is intentionally bootstrapped by the backend container on first start so no local PHP/Composer installation is required. After the first run, the generated Laravel files remain in `./backend` and can be edited normally.
-
-See `docs/TEST_PLAN.md` for a suggested implementation order.
+    - Захист від випадкового редагування: Якщо статус інвойсу відрізняється від pending (approved, rejected), вся форма редагування блокується через елемент <fieldset :disabled>.
+    - Обробка due_date: null: Інтерфейс безпечно форматує порожні дати (виводить —), запобігаючи JS-помилкам видачі Invalid Date.
+    - Валідація хронології дат: due_date не може бути раніше за issue_date (контролюється як на Zod-рівні фронтенду, так і правил під час POST/PUT запитів бекенду).
+    - Адаптивність пагінатора: Блок пагінації показується тільки тоді, коли кількість записів перевищує 10. На мобільних пристроях елементи зручно шикуються вертикально (flex-col), а на десктопі — у рядок.
